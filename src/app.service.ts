@@ -10,10 +10,14 @@ export class AppService {
     return 'Hello World!';
   }
 
+
+
   async saveFile(file: Express.Multer.File): Promise<string> {
     try {
+      var moment = require('moment');
+      moment().format('yyyy-mm-dd:hh:mm:ss');
       const uploadPath = path.join(__dirname, '..', 'capturesImages');
-      const filePath = path.join(uploadPath, 'photo.jpg');
+      const filePath = path.join(uploadPath, moment()+'.jpg');
       
       if (!fs.existsSync(uploadPath)) {
         fs.mkdirSync(uploadPath, { recursive: true });

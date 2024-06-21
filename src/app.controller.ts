@@ -10,6 +10,7 @@ import {
 import { AppService } from './app.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MailService } from './mail'; // Met à jour l'import pour le service
+import { PrintService } from './print';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,22 +19,24 @@ export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly mailService: MailService, // Injecte le service de mail
+    private readonly printService: PrintService,
   ) {}
 
   @Get()
   getHello(): string {
     return this.appService.getHello();
   }
+//        formData.append('mode', 'GIF');
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body('mode') mode: string){
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
 
     try {
-      const filePath = await this.appService.saveFile(file);
+      const filePath = await this.appService.saveFile(file,mode);
       return { path: filePath };
     } catch (err) {
       console.error('Error saving file:', err);
@@ -71,6 +74,25 @@ export class AppController {
     } catch (err) {
       console.error('Error sending email:', err);
       throw new BadRequestException('Failed to send email');
+    }
+  }
+
+  @Post('print')
+  //filepath et copies
+  async print(@Body('filePath') filePath: string, @Body('copies') copies: number) {
+    if (!filePath || !copies) {
+      throw new BadRequestException('Missing file path or copies');
+    }
+
+    try {
+      if (!fs.existsSync(filePath)) {
+        throw new BadRequestException('File does not exist');
+      }
+
+      const printed = await this.printService.print(filePath, copies);
+    } catch (err) {
+      console.error('Error printing file:', err);
+      throw new BadRequestException('Failed to print file');
     }
   }
 }

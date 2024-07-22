@@ -1,7 +1,8 @@
 const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs').promises;
 const path = require('path');
-const printer = require('pdf-to-printer');
+import { print as printWindows } from "pdf-to-printer"
+import { print as printUnix } from "unix-print";
 
 export class PrintService {
     async convertJpgToPdf(jpgPath: string, pdfPath: string) {
@@ -33,12 +34,17 @@ export class PrintService {
 
         console.log(`Printing ${copies} copies of ${pdfPath}`);
 
+        const printer='DP-QW410'
         const printPromises = [];
         for (let i = 0; i < copies; i++) {
             printPromises.push(
-                printer.print(pdfPath, { printer: 'DP-QW410' })
-                    .then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`))
-                    .catch(err => console.error(`Error printing copy ${i + 1}: ${err}`))
+                process.platform === "win32" ?
+                    // on windows
+                    printWindows(pdfPath, { printer }).then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`)).catch(err => console.error(`Error printing copy ${i + 1}: ${err}`))
+                    :
+                    // on linux
+                    printUnix(pdfPath, printer).then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`)).catch(err => console.error(`Error printing copy ${i + 1}: ${err}`))
+                
             );
         }
 

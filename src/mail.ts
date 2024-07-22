@@ -1,6 +1,5 @@
 import * as nodemailer from 'nodemailer';
 import { Attachment } from 'nodemailer/lib/mailer';
-import * as fs from 'fs';
 
 interface ISendMail {
   to: string;

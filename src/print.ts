@@ -2,7 +2,7 @@ const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs').promises;
 const path = require('path');
 import { print as printWindows } from "pdf-to-printer"
-import { print as printUnix } from "unix-print";
+import { print as printUnix, getPrinters, isPrintComplete } from "unix-print";
 
 export class PrintService {
     async convertJpgToPdf(jpgPath: string, pdfPath: string) {
@@ -32,23 +32,42 @@ export class PrintService {
         const pdfPath = filePath.replace(/\.(jpg|jpeg)$/i, '.pdf');
         await this.convertJpgToPdf(filePath, pdfPath);
 
-        console.log(`Printing ${copies} copies of ${pdfPath}`);
-
         const printer='DP-QW410'
-        const printPromises = [];
-        for (let i = 0; i < copies; i++) {
-            printPromises.push(
-                process.platform === "win32" ?
-                    // on windows
+        console.log(`Printing ${copies} copies of ${pdfPath} on printer ${printer}`)
+
+        if (process.platform === "win32") {
+            // on windows
+            const printPromises = [];
+            for (let i = 0; i < copies; i++) {
+                printPromises.push(
                     printWindows(pdfPath, { printer }).then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`)).catch(err => console.error(`Error printing copy ${i + 1}: ${err}`))
-                    :
-                    // on linux
-                    printUnix(pdfPath, printer).then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`)).catch(err => console.error(`Error printing copy ${i + 1}: ${err}`))
-                
-            );
+                );
+            }
+            await Promise.all(printPromises);
+        }
+        else {
+            // on linux
+            // lpoptions -l
+            // PageSize/Media Size: w288h288 w288h288-div2 *w288h216 w288h288_w288h144 w288h432 w288h432-div2 w288h432-div3 w288h576 w288h432_w288h144 w288h432-div2_w288h144 w288h576-div2 w288h576-div4 w324h216 w324h288 w324h324 w324h432 w324h432-div2 w324h486 w324h432-div3 w324h576 w324h576-div2 w324h576-div4 w324h432_w324h144 w324h432-div2_w324h144
+            // w288h216 = 4x3
+            // w288h288 = 4x4
+            // w288h432 = 4x6
+            const options = [`-n ${copies}`, `-o PageSize=w288h216`];
+            console.log("Linux driver with options", options)
+            await getPrinters().then(console.log);
+            const printJob = await printUnix(pdfPath, printer, options).catch(err => console.error(`Error while printing: ${err}`))
+            async function waitForPrintCompletion(printJob) {
+                while (!await isPrintComplete(printJob)) {
+                    // Wait a bit before checking again (to avoid constant checks)
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+                }
+                console.log('Job complete');
+            }
+
+            await waitForPrintCompletion(printJob);
+            console.log(`Printed copies of ${pdfPath}`)
         }
 
-        await Promise.all(printPromises);
         await fs.unlink(pdfPath); // Optionally delete the PDF after printing
     }
 }

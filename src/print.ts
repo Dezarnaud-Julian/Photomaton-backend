@@ -52,7 +52,7 @@ export class PrintService {
             // w288h216 = 4x3
             // w288h288 = 4x4
             // w288h432 = 4x6
-            const options = [`-n ${copies}`, `-o PageSize=w288h216`];
+            const options = [`-n ${copies}`, `-o PageSize=w288h432`];
             console.log("Linux driver with options", options)
             await getPrinters().then(console.log);
             const printJob = await printUnix(pdfPath, printer, options).catch(err => console.error(`Error while printing: ${err}`))

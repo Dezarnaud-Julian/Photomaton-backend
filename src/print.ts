@@ -1,7 +1,7 @@
 const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs').promises;
 const path = require('path');
-import { print as printWindows } from "pdf-to-printer"
+import { print as printWindows } from "pdf-to-printer";
 import { print as printUnix, getPrinters, isPrintComplete } from "unix-print";
 
 export class PrintService {
@@ -10,12 +10,25 @@ export class PrintService {
         const pdfDoc = await PDFDocument.create();
         const jpgImage = await pdfDoc.embedJpg(jpgImageBytes);
 
-        const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
+
+        //const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
+
+        // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
+        const pdfWidth = 288;
+        const pdfHeight = 432; 
+
+        const imgWidth = jpgImage.width/2;
+        const imgHeight = jpgImage.height/2;
+
+        const x = (pdfWidth - imgWidth) / 2;
+        const y = (pdfHeight - imgHeight) / 1.06;
+
+        const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
         page.drawImage(jpgImage, {
-            x: 0,
-            y: 0,
-            width: jpgImage.width,
-            height: jpgImage.height,
+            x: x,
+            y: y,
+            width: imgWidth,
+            height: imgHeight,
         });
 
         const pdfBytes = await pdfDoc.save();
@@ -32,11 +45,10 @@ export class PrintService {
         const pdfPath = filePath.replace(/\.(jpg|jpeg)$/i, '.pdf');
         await this.convertJpgToPdf(filePath, pdfPath);
 
-        const printer='DP-QW410'
-        console.log(`Printing ${copies} copies of ${pdfPath} on printer ${printer}`)
+        const printer='DP-QW410';
+        console.log(`Printing ${copies} copies of ${pdfPath} on printer ${printer}`);
 
         if (process.platform === "win32") {
-            // on windows
             const printPromises = [];
             for (let i = 0; i < copies; i++) {
                 printPromises.push(
@@ -65,9 +77,9 @@ export class PrintService {
             }
 
             await waitForPrintCompletion(printJob);
-            console.log(`Printed copies of ${pdfPath}`)
+            console.log(`Printed copies of ${pdfPath}`);
         }
 
-        await fs.unlink(pdfPath); // Optionally delete the PDF after printing
+        //await fs.unlink(pdfPath); // Optionally delete the PDF after printing
     }
 }

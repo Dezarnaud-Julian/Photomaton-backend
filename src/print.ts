@@ -6,25 +6,40 @@ import { print as printWindows } from "pdf-to-printer";
 import { print as printUnix, getPrinters, isPrintComplete } from "unix-print";
 
 export class PrintService {
+    async readCopiesCount(): Promise<number> {
+        try {
+            const data = await fs.readFile('src/compteur.txt', 'utf8');
+            return parseInt(data, 10);
+        } catch (err) {
+            console.error('Error reading compteur.txt:', err);
+            throw new BadRequestException('Failed to read copies count');
+        }
+    }
+
+    async updateCopiesCount(newCount: number): Promise<void> {
+        try {
+            await fs.writeFile('src/compteur.txt', newCount.toString(), 'utf8');
+        } catch (err) {
+            console.error('Error writing to compteur.txt:', err);
+            throw new BadRequestException('Failed to update copies count');
+        }
+    }
+
     async convertJpgToPdf(jpgPath: string, pdfPath: string, template: string) {
         const jpgImageBytes = await fs.readFile(jpgPath);
         const pdfDoc = await PDFDocument.create();
         const jpgImage = await pdfDoc.embedJpg(jpgImageBytes);
 
-
         let page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
         let imgWidth = jpgImage.width;
         let imgHeight = jpgImage.height;
 
-
-        if(template === 'POLAROID'){
-
-            // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
+        if (template === 'POLAROID') {
             const pdfWidth = 288;
             const pdfHeight = 432;
 
-            imgWidth = jpgImage.width/2;
-            imgHeight = jpgImage.height/2;
+            imgWidth = jpgImage.width / 2;
+            imgHeight = jpgImage.height / 2;
 
             const x = (pdfWidth - imgWidth) / 2;
             const y = (pdfHeight - imgHeight) / 1.06;
@@ -38,7 +53,6 @@ export class PrintService {
             });
         }
 
-
         page.drawImage(jpgImage, {
             x: 0,
             y: 0,
@@ -50,29 +64,46 @@ export class PrintService {
         await fs.writeFile(pdfPath, pdfBytes);
     }
 
-    async print(filePath: string, copies: number, template: string) {
+    async print(filePath: string, copiesRequested: number, template: string) {
         const ext = path.extname(filePath).toLowerCase();
         if (ext !== '.jpg' && ext !== '.jpeg') {
             console.error('The file must be a .jpg or .jpeg image');
-            throw new BadRequestException('Failed to print file');
+            throw new BadRequestException('The file must be a .jpg or .jpeg image');
         }
-    
+
         const pdfPath = filePath.replace(/\.(jpg|jpeg)$/i, '.pdf');
-    
+
         try {
             await this.convertJpgToPdf(filePath, pdfPath, template);
         } catch (err) {
             console.error(`Error converting JPG to PDF: ${err}`);
             throw new BadRequestException('Failed to convert JPG to PDF');
         }
-    
+
         const printer = 'DP-QW410';
-        console.log(`Printing ${copies} copies of ${pdfPath} on printer ${printer}`);
-    
+        let copiesAvailable;
+
         try {
+            copiesAvailable = await this.readCopiesCount();
+            if (copiesAvailable <= 0) {
+                console.error('No copies left to print');
+                throw new BadRequestException('Veuillez changer le rouleau');
+            }
+
+            const copiesToPrint = Math.min(copiesRequested, copiesAvailable);
+
+            // if (template === 'POLAROID') {
+            //     await this.updateCopiesCount(copiesAvailable - copiesToPrint);
+            // }else{
+            //     await this.updateCopiesCount(copiesAvailable - (copiesToPrint*2));
+            // }
+            await this.updateCopiesCount(copiesAvailable - copiesToPrint);
+
+            console.log(`Printing ${copiesToPrint} copies of ${pdfPath} on printer ${printer}`);
+
             if (process.platform === "win32") {
                 const printPromises = [];
-                for (let i = 0; i < copies; i++) {
+                for (let i = 0; i < copiesToPrint; i++) {
                     printPromises.push(
                         printWindows(pdfPath, { printer })
                             .then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`))
@@ -81,10 +112,10 @@ export class PrintService {
                 await Promise.all(printPromises);
             } else {
                 // on linux
-                const options = [`-n ${copies}`, `-o PageSize=w288h432`];
+                const options = [`-n ${copiesToPrint}`, `-o PageSize=w288h432`];
                 console.log("Linux driver with options", options);
                 await getPrinters().then(console.log);
-    
+
                 let printJob;
                 try {
                     printJob = await printUnix(pdfPath, printer, options);
@@ -92,27 +123,24 @@ export class PrintService {
                     console.error(`Error while printing: ${err}`);
                     throw new BadRequestException('Failed to print on Unix system');
                 }
-    
-                async function waitForPrintCompletion(printJob) {
-                    while (!await isPrintComplete(printJob)) {
-                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
-                    }
-                    console.log('Job complete');
-                }
-    
-                await waitForPrintCompletion(printJob);
                 console.log(`Printed copies of ${pdfPath}`);
             }
+
+            // If there were more copies requested than available, send an error after printing
+            if (copiesRequested > copiesAvailable) {
+                throw new BadRequestException('Not enough copies available. Printed what was possible.');
+            }
+
         } catch (err) {
             console.error(`Error in print process: ${err}`);
-            throw new BadRequestException('Failed to print file');
+            throw err;  // Re-throw the caught exception
         }
-    
+
         // Optionally delete the PDF after printing
         try {
             // await fs.unlink(pdfPath);
         } catch (err) {
             console.error(`Error deleting the PDF file: ${err}`);
         }
-    }    
+    }
 }

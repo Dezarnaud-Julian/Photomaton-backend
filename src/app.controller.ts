@@ -92,7 +92,7 @@ export class AppController {
       const printed = await this.printService.print(filePath, copies, template);
     } catch (err) {
       console.error('Error printing file:', err);
-      throw new BadRequestException('Failed to print file');
+      throw new BadRequestException(err.message);
     }
   }
 }

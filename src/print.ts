@@ -4,6 +4,8 @@ const path = require('path');
 import { BadRequestException } from "@nestjs/common";
 import { print as printWindows } from "pdf-to-printer";
 import { print as printUnix, getPrinters, isPrintComplete } from "unix-print";
+const { print } = require("pdf-to-printer");
+
 
 export class PrintService {
     async readCopiesCount(): Promise<number> {
@@ -35,11 +37,11 @@ export class PrintService {
             const pdfWidth = 720;
             const pdfHeight = 1080; 
 
-            const imgWidth = jpgImage.width/1.6;
-            const imgHeight = jpgImage.height/1.6;
+            const imgWidth = jpgImage.width/1.1;
+            const imgHeight = jpgImage.height/1.1;
 
             const x = (pdfWidth - imgWidth) / 2;
-            const y = (pdfHeight - imgHeight) / 1.06;
+            const y = (pdfHeight - imgHeight) / 1.1;
 
             const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
             page.drawImage(jpgImage, {
@@ -92,43 +94,46 @@ export class PrintService {
 
             const copiesToPrint = Math.min(copiesRequested, copiesAvailable);
 
-            // if (template === 'POLAROID') {
-            //     await this.updateCopiesCount(copiesAvailable - copiesToPrint);
-            // }else{
-            //     await this.updateCopiesCount(copiesAvailable - (copiesToPrint*2));
-            // }
+            if (template === 'POLAROID') {
+                await this.updateCopiesCount(copiesAvailable - copiesToPrint);
+            }else{
+                await this.updateCopiesCount(copiesAvailable - (copiesToPrint*2));
+            }
             await this.updateCopiesCount(copiesAvailable - copiesToPrint);
 
             console.log(`Printing ${copiesToPrint} copies of ${pdfPath} on printer ${printer}`);
 
             if (process.platform === "win32") {
+                // on windows
                 const printPromises = [];
                 for (let i = 0; i < copiesToPrint; i++) {
                     printPromises.push(
-                        printWindows(pdfPath, { printer })
-                            .then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`))
+                        printWindows(pdfPath, { printer }).then(() => console.log(`Printed copy ${i + 1} of ${pdfPath}`)).catch(err => console.error(`Error printing copy ${i + 1}: ${err}`))
                     );
                 }
                 await Promise.all(printPromises);
-            } else {
+            }
+            else {
                 // on linux
                 // lpoptions -l
                 // PageSize/Media Size: w288h288 w288h288-div2 *w288h216 w288h288_w288h144 w288h432 w288h432-div2 w288h432-div3 w288h576 w288h432_w288h144 w288h432-div2_w288h144 w288h576-div2 w288h576-div4 w324h216 w324h288 w324h324 w324h432 w324h432-div2 w324h486 w324h432-div3 w324h576 w324h576-div2 w324h576-div4 w324h432_w324h144 w324h432-div2_w324h144
                 // w288h216 = 4x3
                 // w288h288 = 4x4
                 // w288h432 = 4x6
-                const options = [`-n ${copiesToPrint}`, `-o PageSize=w288h432`];
-                console.log("Linux driver with options", options);
+                const options = [`-n ${copiesRequested}`, `-o PageSize=w288h432`];
+                console.log("Linux driver with options", options)
                 await getPrinters().then(console.log);
-
-                let printJob;
-                try {
-                    printJob = await printUnix(pdfPath, printer, options);
-                } catch (err) {
-                    console.error(`Error while printing: ${err}`);
-                    throw new BadRequestException('Failed to print on Unix system');
+                const printJob = await printUnix(pdfPath, printer, options).catch(err => console.error(`Error while printing: ${err}`))
+                async function waitForPrintCompletion(printJob) {
+                    while (!await isPrintComplete(printJob)) {
+                        // Wait a bit before checking again (to avoid constant checks)
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+                    }
+                    console.log('Job complete');
                 }
-                console.log(`Printed copies of ${pdfPath}`);
+    
+                await waitForPrintCompletion(printJob);
+                console.log(`Printed copies of ${pdfPath}`)
             }
 
             // If there were more copies requested than available, send an error after printing

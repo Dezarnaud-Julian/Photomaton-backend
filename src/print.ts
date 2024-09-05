@@ -2,10 +2,11 @@ const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs').promises;
 const path = require('path');
 import { BadRequestException } from "@nestjs/common";
+import { degrees, degreesToRadians } from "pdf-lib";
 import { print as printWindows } from "pdf-to-printer";
 import { print as printUnix, getPrinters, isPrintComplete } from "unix-print";
 const { print } = require("pdf-to-printer");
-
+//restart print if problem : cupsenable DP-QW410
 
 export class PrintService {
     async readCopiesCount(): Promise<number> {
@@ -34,14 +35,14 @@ export class PrintService {
 
         if(template === 'POLAROID'){
             // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
-            const pdfWidth = 720;
-            const pdfHeight = 1080; 
+            const pdfWidth = 288;
+            const pdfHeight = 216; 
 
-            const imgWidth = jpgImage.width/1.1;
-            const imgHeight = jpgImage.height/1.1;
+            const imgWidth = jpgImage.width/3.5;
+            const imgHeight = jpgImage.height/3.5;
 
-            const x = (pdfWidth - imgWidth) / 2;
-            const y = (pdfHeight - imgHeight) / 1.1;
+            const x = (pdfWidth - imgWidth) * 1.82;
+            const y = (pdfHeight - imgHeight) * 4;
 
             const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
             page.drawImage(jpgImage, {
@@ -50,6 +51,7 @@ export class PrintService {
                 width: imgWidth,
                 height: imgHeight,
             });
+            //page.setRotation(degrees(90))
 
             const pdfBytes = await pdfDoc.save();
             await fs.writeFile(pdfPath, pdfBytes);
@@ -61,6 +63,7 @@ export class PrintService {
                 width: jpgImage.width,
                 height: jpgImage.height,
             });
+            page.setRotation(degrees(90))
             const pdfBytes = await pdfDoc.save();
             await fs.writeFile(pdfPath, pdfBytes);
         }
@@ -120,7 +123,12 @@ export class PrintService {
                 // w288h216 = 4x3
                 // w288h288 = 4x4
                 // w288h432 = 4x6
-                const options = [`-n ${copiesRequested}`, `-o PageSize=w288h432`];
+                let options = [`-n ${copiesRequested}`, `-o PageSize=w288h432`];
+
+                if(template === 'POLAROID'){
+                    options = [`-n ${copiesRequested}`, `-o PageSize=w288h216`];
+                }
+                
                 console.log("Linux driver with options", options)
                 await getPrinters().then(console.log);
                 const printJob = await printUnix(pdfPath, printer, options).catch(err => console.error(`Error while printing: ${err}`))
@@ -154,3 +162,5 @@ export class PrintService {
         }
     }
 }
+
+// PageSize/Media Size: w288h288 w288h288-div2 *w288h216 w288h288_w288h144 w288h432

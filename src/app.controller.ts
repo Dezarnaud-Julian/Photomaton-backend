@@ -95,4 +95,20 @@ export class AppController {
       throw new BadRequestException(err.message);
     }
   }
+
+  @Post('updateCopies')
+  async updateCopies(@Body('copies') copies: number) {
+    console.log('Updating copies count:', copies);
+    if (isNaN(copies) || copies <= 0) {
+      throw new BadRequestException('Invalid number of copies');
+    }
+
+    try {
+      await this.printService.updateCopiesCount(copies);
+      return { message: 'Copies count updated successfully' };
+    } catch (err) {
+      console.error('Error updating copies count:', err);
+      throw new BadRequestException('Failed to update copies count');
+    }
+  }
 }

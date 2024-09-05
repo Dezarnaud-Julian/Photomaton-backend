@@ -21,6 +21,7 @@ export class PrintService {
 
     async updateCopiesCount(newCount: number): Promise<void> {
         try {
+            console.log('Updating copies count to', newCount);
             await fs.writeFile('src/compteur.txt', newCount.toString(), 'utf8');
         } catch (err) {
             console.error('Error writing to compteur.txt:', err);

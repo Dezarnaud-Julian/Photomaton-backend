@@ -71,16 +71,54 @@ export class PrintService {
             const pdfBytes = await pdfDoc.save();
             await fs.writeFile(pdfPath, pdfBytes);
         }else{
-            const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
-            page.drawImage(jpgImage, {
-                x: 0,
-                y: 0,
-                width: jpgImage.width,
-                height: jpgImage.height,
-            });
-            page.setRotation(degrees(90))
-            const pdfBytes = await pdfDoc.save();
-            await fs.writeFile(pdfPath, pdfBytes);
+            if(template === 'MINIPOLAROID'){
+    
+                // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
+                const pdfWidth = 288;
+                const pdfHeight = 216; 
+    
+                const imgWidth = jpgImage.width/3;
+                const imgHeight = jpgImage.height/3;
+    
+                const x = ((pdfWidth - imgWidth)/2) *2.7;
+                const y = ((pdfHeight - imgHeight)+25);
+    
+                const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
+                page.drawImage(jpgImage, {
+                    x: x,
+                    y: y,
+                    width: imgWidth,
+                    height: imgHeight,
+                });
+                page.drawImage(jpgImage, {
+                    x: x-143,
+                    y: y,
+                    width: imgWidth,
+                    height: imgHeight,
+                });
+                //- vers la gauche , + vers la dorite
+                page.drawImage(jpgImage, {
+                    x: x-287,
+                    y: y,
+                    width: imgWidth,
+                    height: imgHeight,
+                });
+                //page.setRotation(degrees(90))
+    
+                const pdfBytes = await pdfDoc.save();
+                await fs.writeFile(pdfPath, pdfBytes);
+            }else{
+                const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
+                page.drawImage(jpgImage, {
+                    x: 0,
+                    y: 0,
+                    width: jpgImage.width,
+                    height: jpgImage.height,
+                });
+                page.setRotation(degrees(90))
+                const pdfBytes = await pdfDoc.save();
+                await fs.writeFile(pdfPath, pdfBytes);
+            }
         }
     }
 
@@ -113,11 +151,14 @@ export class PrintService {
             const copiesToPrint = Math.min(copiesRequested, copiesAvailable);
 
             if (template === 'POLAROID') {
-                await this.updateCopiesCount(copiesAvailable - copiesToPrint);
+                await this.updateCopiesCount(copiesAvailable - (copiesToPrint/2));
             }else{
-                await this.updateCopiesCount(copiesAvailable - (copiesToPrint*2));
+                if (template === 'MINIPOLAROID') {
+                    await this.updateCopiesCount(copiesAvailable - (copiesToPrint/3));
+                }else{
+                    await this.updateCopiesCount(copiesAvailable - copiesToPrint);
+                }
             }
-            await this.updateCopiesCount(copiesAvailable - copiesToPrint);
 
             console.log(`Printing ${copiesToPrint} copies of ${pdfPath} on printer ${printer}`);
 
@@ -142,6 +183,10 @@ export class PrintService {
 
                 if(template === 'POLAROID'){
                     options = [`-n ${copiesRequested}`, `-o PageSize=w288h216`];
+                }
+
+                if(template === 'MINIPOLAROID'){
+                    options = [`-n ${copiesRequested}`, `-o PageSize=w288h432-div3`];
                 }
                 
                 console.log("Linux driver with options", options)

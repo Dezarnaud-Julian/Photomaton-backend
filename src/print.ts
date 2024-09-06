@@ -30,20 +30,27 @@ export class PrintService {
     }
 
     async convertJpgToPdf(jpgPath: string, pdfPath: string, template: string) {
-        const jpgImageBytes = await fs.readFile(jpgPath);
         const pdfDoc = await PDFDocument.create();
+        const jpgImageBytes = await fs.readFile(jpgPath);
         const jpgImage = await pdfDoc.embedJpg(jpgImageBytes);
 
         if(template === 'POLAROID'){
+
+            const cadreBytes = await fs.readFile("./src/cadres/POLAROID/MAMA.png");
+            const cadreImage = await pdfDoc.embedPng(cadreBytes);
+
             // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
             const pdfWidth = 288;
             const pdfHeight = 216; 
 
-            const imgWidth = jpgImage.width/3.5;
-            const imgHeight = jpgImage.height/3.5;
+            const imgWidth = jpgImage.width/4;
+            const imgHeight = jpgImage.height/4;
 
-            const x = (pdfWidth - imgWidth) * 1.82;
-            const y = (pdfHeight - imgHeight) * 4;
+            const cadreWidth = cadreImage.width/5;
+            const cadreHeight = cadreImage.height/5;
+
+            const x = ((pdfWidth - imgWidth)/2) *3;
+            const y = ((pdfHeight - imgHeight) - x) +180;
 
             const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
             page.drawImage(jpgImage, {
@@ -51,6 +58,13 @@ export class PrintService {
                 y: y,
                 width: imgWidth,
                 height: imgHeight,
+            });
+
+            page.drawImage(cadreImage, {
+                x: pdfWidth/2,
+                y: -25,
+                width: cadreWidth,
+                height: cadreHeight,
             });
             //page.setRotation(degrees(90))
 

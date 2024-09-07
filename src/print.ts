@@ -29,15 +29,13 @@ export class PrintService {
         }
     }
 
-    async convertJpgToPdf(jpgPath: string, pdfPath: string, template: string) {
+    async convertJpgToPdf(jpgPath: string, pdfPath: string, template: string, cadre:string) {
+        console.log("CADRE : ", cadre);
         const pdfDoc = await PDFDocument.create();
         const jpgImageBytes = await fs.readFile(jpgPath);
         const jpgImage = await pdfDoc.embedJpg(jpgImageBytes);
 
         if(template === 'POLAROID'){
-
-            const cadreBytes = await fs.readFile("./src/cadres/POLAROID/MAMA.png");
-            const cadreImage = await pdfDoc.embedPng(cadreBytes);
 
             // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
             const pdfWidth = 288;
@@ -45,9 +43,6 @@ export class PrintService {
 
             const imgWidth = jpgImage.width/4;
             const imgHeight = jpgImage.height/4;
-
-            const cadreWidth = cadreImage.width/5;
-            const cadreHeight = cadreImage.height/5;
 
             const x = ((pdfWidth - imgWidth)/2) *3;
             const y = ((pdfHeight - imgHeight) - x) +180;
@@ -60,12 +55,21 @@ export class PrintService {
                 height: imgHeight,
             });
 
-            page.drawImage(cadreImage, {
-                x: pdfWidth/2,
-                y: -25,
-                width: cadreWidth,
-                height: cadreHeight,
-            });
+            if(cadre !== "NULL"){
+                const cadreBytes = await fs.readFile("./src/cadres/POLAROID/"+cadre+".png");
+                const cadreImage = await pdfDoc.embedPng(cadreBytes);
+                
+                const cadreWidth = cadreImage.width/5;
+                const cadreHeight = cadreImage.height/5;
+
+
+                page.drawImage(cadreImage, {
+                    x: pdfWidth/2,
+                    y: -25,
+                    width: cadreWidth,
+                    height: cadreHeight,
+                });
+            }
             //page.setRotation(degrees(90))
 
             const pdfBytes = await pdfDoc.save();
@@ -77,10 +81,10 @@ export class PrintService {
                 const pdfWidth = 288;
                 const pdfHeight = 216; 
     
-                const imgWidth = jpgImage.width/3;
-                const imgHeight = jpgImage.height/3;
+                const imgWidth = jpgImage.width/2.7;
+                const imgHeight = jpgImage.height/2.7;
     
-                const x = ((pdfWidth - imgWidth)/2) *2.7;
+                const x = (((pdfWidth - imgWidth)/2) *2.845)+1;
                 const y = ((pdfHeight - imgHeight)+25);
     
                 const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
@@ -91,14 +95,14 @@ export class PrintService {
                     height: imgHeight,
                 });
                 page.drawImage(jpgImage, {
-                    x: x-143,
+                    x: x-144.5,
                     y: y,
                     width: imgWidth,
                     height: imgHeight,
                 });
                 //- vers la gauche , + vers la dorite
                 page.drawImage(jpgImage, {
-                    x: x-287,
+                    x: x-288,
                     y: y,
                     width: imgWidth,
                     height: imgHeight,
@@ -122,7 +126,7 @@ export class PrintService {
         }
     }
 
-    async print(filePath: string, copiesRequested: number, template: string) {
+    async print(filePath: string, copiesRequested: number, template: string, cadre: string) {
         const ext = path.extname(filePath).toLowerCase();
         if (ext !== '.jpg' && ext !== '.jpeg') {
             console.error('The file must be a .jpg or .jpeg image');
@@ -132,7 +136,7 @@ export class PrintService {
         const pdfPath = filePath.replace(/\.(jpg|jpeg)$/i, '.pdf');
 
         try {
-            await this.convertJpgToPdf(filePath, pdfPath, template);
+            await this.convertJpgToPdf(filePath, pdfPath, template,cadre);
         } catch (err) {
             console.error(`Error converting JPG to PDF: ${err}`);
             throw new BadRequestException('Failed to convert JPG to PDF');
@@ -179,6 +183,7 @@ export class PrintService {
                 // w288h216 = 4x3
                 // w288h288 = 4x4
                 // w288h432 = 4x6
+
                 let options = [`-n ${copiesRequested}`, `-o PageSize=w288h432`];
 
                 if(template === 'POLAROID'){
@@ -186,6 +191,9 @@ export class PrintService {
                 }
 
                 if(template === 'MINIPOLAROID'){
+                    if(copiesRequested > 3){
+                        copiesRequested = 2;
+                    }
                     options = [`-n ${copiesRequested}`, `-o PageSize=w288h432-div3`];
                 }
                 

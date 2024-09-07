@@ -79,7 +79,7 @@ export class AppController {
 
   @Post('print')
   //filepath et copies
-  async print(@Body('filePath') filePath: string, @Body('copies') copies: number, @Body('template') template: string) {
+  async print(@Body('filePath') filePath: string, @Body('copies') copies: number, @Body('template') template: string, @Body('cadre') cadre: string) {
     if (!filePath || !copies) {
       throw new BadRequestException('Missing file path or copies');
     }
@@ -89,7 +89,7 @@ export class AppController {
         throw new BadRequestException('File does not exist');
       }
 
-      const printed = await this.printService.print(filePath, copies, template);
+      const printed = await this.printService.print(filePath, copies, template, cadre);
     } catch (err) {
       console.error('Error printing file:', err);
       throw new BadRequestException(err.message);

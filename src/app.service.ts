@@ -3,15 +3,37 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
+import { exec } from 'child_process';
 
 @Injectable()
 export class AppService {
+  shutdownMachine() {
+    exec('sudo shutdown now', (err, output) => {
+      // once the command has completed, the callback function is called
+      if (err) {
+          // log and return if we encounter an error
+          console.error("could not execute command: ", err)
+          return
+      }
+      // log the output received from the command
+      console.log("Output: \n", output)
+    })
+  }
+  rebootMachine() {
+    exec('sudo reboot now', (err, output) => {
+      // once the command has completed, the callback function is called
+      if (err) {
+          // log and return if we encounter an error
+          console.error("could not execute command: ", err)
+          return
+      }
+      // log the output received from the command
+      console.log("Output: \n", output)
+    })
+  }
   getHello(): string {
     return 'Hello World!';
   }
-
-
-
   async saveFile(file: Express.Multer.File, mode: string): Promise<string> {
     try {
       var moment = require('moment');

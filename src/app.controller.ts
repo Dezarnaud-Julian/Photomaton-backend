@@ -111,4 +111,16 @@ export class AppController {
       throw new BadRequestException('Failed to update copies count');
     }
   }
+
+  @Post('reboot')
+  async reboot() {
+    console.log('Reboot');
+    this.appService.rebootMachine();
+  }
+
+  @Post('shutdown')
+  async shutdown() {
+    console.log('shutdown');
+    this.appService.shutdownMachine();
+  }
 }

@@ -1,12 +1,15 @@
 const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs').promises;
 const path = require('path');
+const sharp = require('sharp');
 import { BadRequestException } from "@nestjs/common";
-import { degrees, degreesToRadians } from "pdf-lib";
+import { exec } from "child_process";
+import { degrees } from "pdf-lib";
 import { print as printWindows } from "pdf-to-printer";
 import { print as printUnix, getPrinters, isPrintComplete } from "unix-print";
 const { print } = require("pdf-to-printer");
 //restart print if problem : cupsenable DP-QW410
+// service on linux is at /usr/local/bin/launch_photobooth.sh 
 
 export class PrintService {
     async readCopiesCount(): Promise<number> {
@@ -29,23 +32,50 @@ export class PrintService {
         }
     }
 
-    async convertJpgToPdf(jpgPath: string, pdfPath: string, template: string, cadre:string) {
-        console.log("CADRE : ", cadre);
+    async optimizeImage(inputPath: string, outputPath: string, template: string): Promise<void> {
+        let x = 3228
+        let y = 2160
+        if(template === "MINIPOLAROID"){
+             x = 720/2
+             y = 1080/2
+        }
+        if(template === "POLAROID"){
+            x = 720
+            y = 720
+       }
+        try {
+            await sharp(inputPath)
+                .resize(x, y, {
+                    fit: sharp.fit.inside,
+                    withoutEnlargement: true,
+                })
+                .jpeg({ quality: 90 })
+                .toFile(outputPath);
+        } catch (err) {
+            console.error('Error optimizing image:', err);
+            throw new BadRequestException('Failed to optimize image');
+        }
+    }
+
+    async convertJpgToPdf(jpgPath: string, pdfPath: string, template: string, cadre: string) {
+        const optimizedImagePath = jpgPath.replace(/\.(jpg|jpeg)$/i, '-optimized.jpg');
+        
+        // Optimise l'image avant de l'incorporer dans le PDF
+        await this.optimizeImage(jpgPath, optimizedImagePath, template);
+
         const pdfDoc = await PDFDocument.create();
-        const jpgImageBytes = await fs.readFile(jpgPath);
+        const jpgImageBytes = await fs.readFile(optimizedImagePath);
         const jpgImage = await pdfDoc.embedJpg(jpgImageBytes);
 
-        if(template === 'POLAROID'){
-
-            // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
+        if (template === 'POLAROID') {
             const pdfWidth = 288;
-            const pdfHeight = 216; 
+            const pdfHeight = 216;
 
-            const imgWidth = jpgImage.width/4;
-            const imgHeight = jpgImage.height/4;
+            const imgWidth = jpgImage.width / 4;
+            const imgHeight = jpgImage.height / 4;
 
-            const x = ((pdfWidth - imgWidth)/2) *3;
-            const y = ((pdfHeight - imgHeight) - x) +180;
+            const x = ((pdfWidth - imgWidth) / 2) * 3;
+            const y = ((pdfHeight - imgHeight) - x) + 180;
 
             const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
             page.drawImage(jpgImage, {
@@ -55,74 +85,73 @@ export class PrintService {
                 height: imgHeight,
             });
 
-            if(cadre !== "NULL"){
-                const cadreBytes = await fs.readFile("./src/cadres/POLAROID/"+cadre+".png");
+            if (cadre !== "NULL") {
+                const cadreBytes = await fs.readFile("./src/cadres/POLAROID/" + cadre + ".png");
                 const cadreImage = await pdfDoc.embedPng(cadreBytes);
-                
-                const cadreWidth = cadreImage.width/5;
-                const cadreHeight = cadreImage.height/5;
 
+                const cadreWidth = cadreImage.width / 5;
+                const cadreHeight = cadreImage.height / 5;
 
                 page.drawImage(cadreImage, {
-                    x: pdfWidth/2,
+                    x: pdfWidth / 2,
                     y: -25,
                     width: cadreWidth,
                     height: cadreHeight,
                 });
             }
-            //page.setRotation(degrees(90))
 
             const pdfBytes = await pdfDoc.save();
             await fs.writeFile(pdfPath, pdfBytes);
-        }else{
-            if(template === 'MINIPOLAROID'){
-    
-                // Dimensions du format 4x6 pouces en points (1 pouce = 72 points)
-                const pdfWidth = 288;
-                const pdfHeight = 216; 
-    
-                const imgWidth = jpgImage.width/2.7;
-                const imgHeight = jpgImage.height/2.7;
-    
-                const x = (((pdfWidth - imgWidth)/2) *2.845)+1;
-                const y = ((pdfHeight - imgHeight)+25);
-    
-                const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
-                page.drawImage(jpgImage, {
-                    x: x,
-                    y: y,
-                    width: imgWidth,
-                    height: imgHeight,
-                });
-                page.drawImage(jpgImage, {
-                    x: x-144.5,
-                    y: y,
-                    width: imgWidth,
-                    height: imgHeight,
-                });
-                //- vers la gauche , + vers la dorite
-                page.drawImage(jpgImage, {
-                    x: x-288,
-                    y: y,
-                    width: imgWidth,
-                    height: imgHeight,
-                });
-                //page.setRotation(degrees(90))
-    
-                const pdfBytes = await pdfDoc.save();
-                await fs.writeFile(pdfPath, pdfBytes);
-            }else{
-                const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
-                page.drawImage(jpgImage, {
-                    x: 0,
-                    y: 0,
-                    width: jpgImage.width,
-                    height: jpgImage.height,
-                });
-                page.setRotation(degrees(90))
-                const pdfBytes = await pdfDoc.save();
-                await fs.writeFile(pdfPath, pdfBytes);
-            }
+        } else if (template === 'MINIPOLAROID') {
+            const pdfWidth = 288;
+            const pdfHeight = 216;
+
+            const imgWidth = jpgImage.width / 2.7;
+            const imgHeight = jpgImage.height / 2.7;
+
+            const x = (((pdfWidth - imgWidth) / 2) * 2.845) - 3;
+            const y = ((pdfHeight - imgHeight) + 25);
+
+            const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
+            page.drawImage(jpgImage, {
+                x: x,
+                y: y,
+                width: imgWidth,
+                height: imgHeight,
+            });
+
+            page.drawImage(jpgImage, {
+                x: x - 144.5,
+                y: y,
+                width: imgWidth,
+                height: imgHeight,
+            });
+
+            page.drawImage(jpgImage, {
+                x: x - 288,
+                y: y,
+                width: imgWidth,
+                height: imgHeight,
+            });
+
+            const pdfBytes = await pdfDoc.save();
+            await fs.writeFile(pdfPath, pdfBytes);
+        } else {
+            const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
+            page.drawImage(jpgImage, {
+                x: 0,
+                y: 0,
+                width: jpgImage.width,
+                height: jpgImage.height,
+            });
+            page.setRotation(degrees(90));
+            const pdfBytes = await pdfDoc.save();
+            await fs.writeFile(pdfPath, pdfBytes);
+        }
+        try {
+            await fs.unlink(optimizedImagePath);
+        } catch (err) {
+            console.error(`Error deleting the optimized image: ${err}`);
         }
     }
 
@@ -164,6 +193,13 @@ export class PrintService {
                 }
             }
 
+            // Launch cupsenable to be sure the printer is activated and ready to get the print order
+            exec(`cuspenable ${printer}`, (err, output) => {
+                if (err) {
+                    console.error("could not execute command: ", err)
+                    return
+                }
+            })
             console.log(`Printing ${copiesToPrint} copies of ${pdfPath} on printer ${printer}`);
 
             if (process.platform === "win32") {
@@ -180,9 +216,9 @@ export class PrintService {
                 // on linux
                 // lpoptions -l
                 // PageSize/Media Size: w288h288 w288h288-div2 *w288h216 w288h288_w288h144 w288h432 w288h432-div2 w288h432-div3 w288h576 w288h432_w288h144 w288h432-div2_w288h144 w288h576-div2 w288h576-div4 w324h216 w324h288 w324h324 w324h432 w324h432-div2 w324h486 w324h432-div3 w324h576 w324h576-div2 w324h576-div4 w324h432_w324h144 w324h432-div2_w324h144
-                // w288h216 = 4x3
+                // w288h216 = 4x3 POLAROID
                 // w288h288 = 4x4
-                // w288h432 = 4x6
+                // w288h432 = 4x6 PHOTO
 
                 let options = [`-n ${copiesRequested}`, `-o PageSize=w288h432`];
 
@@ -224,7 +260,7 @@ export class PrintService {
 
         // Optionally delete the PDF after printing
         try {
-            // await fs.unlink(pdfPath);
+            await fs.unlink(pdfPath);
         } catch (err) {
             console.error(`Error deleting the PDF file: ${err}`);
         }

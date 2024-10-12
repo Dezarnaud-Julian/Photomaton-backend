@@ -4,12 +4,11 @@ const path = require('path');
 const sharp = require('sharp');
 import { BadRequestException } from "@nestjs/common";
 import { exec } from "child_process";
+import { join } from "path";
 import { degrees } from "pdf-lib";
 import { print as printWindows } from "pdf-to-printer";
 import { print as printUnix, getPrinters, isPrintComplete } from "unix-print";
 const { print } = require("pdf-to-printer");
-//restart print if problem : cupsenable DP-QW410
-// service on linux is at /usr/local/bin/launch_photobooth.sh 
 
 export class PrintService {
     async readCopiesCount(): Promise<number> {
@@ -86,7 +85,7 @@ export class PrintService {
             });
 
             if (cadre !== "NULL") {
-                const cadreBytes = await fs.readFile("./src/cadres/POLAROID/" + cadre + ".png");
+                const cadreBytes = await fs.readFile(join(__dirname, '..', 'client', 'cadres/polaroid', cadre + ".png"));
                 const cadreImage = await pdfDoc.embedPng(cadreBytes);
 
                 const cadreWidth = cadreImage.width / 5;
@@ -194,7 +193,7 @@ export class PrintService {
             }
 
             // Launch cupsenable to be sure the printer is activated and ready to get the print order
-            exec(`cuspenable ${printer}`, (err, output) => {
+            exec(`cupsenable ${printer}`, (err, output) => {
                 if (err) {
                     console.error("could not execute command: ", err)
                     return

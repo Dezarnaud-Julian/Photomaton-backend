@@ -20,13 +20,12 @@ export class AppController {
     private readonly appService: AppService,
     private readonly mailService: MailService, // Injecte le service de mail
     private readonly printService: PrintService,
-  ) {}
-
+  ) { }
+  
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  hello() {
+    return "hello"
   }
-//        formData.append('mode', 'GIF');
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))

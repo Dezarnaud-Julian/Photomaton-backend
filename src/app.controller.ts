@@ -20,22 +20,25 @@ export class AppController {
     private readonly appService: AppService,
     private readonly mailService: MailService, // Injecte le service de mail
     private readonly printService: PrintService,
-  ) { }
-  
+  ) {}
+
   @Get()
   hello() {
-    return "hello"
+    return 'hello';
   }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body('mode') mode: string){
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('mode') mode: string,
+  ) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
 
     try {
-      const filePath = await this.appService.saveFile(file,mode);
+      const filePath = await this.appService.saveFile(file, mode);
       return { path: filePath };
     } catch (err) {
       console.error('Error saving file:', err);
@@ -78,7 +81,12 @@ export class AppController {
 
   @Post('print')
   //filepath et copies
-  async print(@Body('filePath') filePath: string, @Body('copies') copies: number, @Body('template') template: string, @Body('cadre') cadre: string) {
+  async print(
+    @Body('filePath') filePath: string,
+    @Body('copies') copies: number,
+    @Body('format') format: string,
+    @Body('frame') frame: string,
+  ) {
     if (!filePath || !copies) {
       throw new BadRequestException('Missing file path or copies');
     }
@@ -88,7 +96,12 @@ export class AppController {
         throw new BadRequestException('File does not exist');
       }
 
-      const printed = await this.printService.print(filePath, copies, template, cadre);
+      const printed = await this.printService.print(
+        filePath,
+        copies,
+        format,
+        frame,
+      );
     } catch (err) {
       console.error('Error printing file:', err);
       throw new BadRequestException(err.message);

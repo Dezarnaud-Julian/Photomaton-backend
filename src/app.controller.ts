@@ -135,4 +135,12 @@ export class AppController {
     console.log('shutdown');
     this.appService.shutdownMachine();
   }
+
+  @Post('quit')
+  async quitApplication() {
+    console.log('Quit Application');
+    this.appService.closeWindow();
+  }
+  
+  
 }

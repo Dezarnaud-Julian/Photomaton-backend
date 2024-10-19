@@ -65,4 +65,24 @@ export class AppService {
       console.log('Email sent!', email);
     }
   }
+
+  closeWindow() {
+    if (process.env.IS_ELECTRON) {
+      const { BrowserWindow } = require('electron');
+      const win = BrowserWindow.getFocusedWindow();
+      if (win) win.close();
+    } else {
+      exec('killall node', (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Erreur lors de la fermeture de l'application : ${error.message}`);
+          return;
+        }
+        if (stderr) {
+          console.error(`Erreur lors de l'exécution : ${stderr}`);
+          return;
+        }
+        console.log('Application fermée avec succès');
+      });
+    }
+  }
 }

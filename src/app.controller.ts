@@ -13,13 +13,15 @@ import { MailService } from './mail'; // Met à jour l'import pour le service
 import { PrintService } from './print';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CodeService } from './code.service';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly appService: AppService,
-    private readonly mailService: MailService, // Injecte le service de mail
+    private readonly mailService: MailService,
     private readonly printService: PrintService,
+    private readonly codeService: CodeService,
   ) {}
 
   @Get()
@@ -106,6 +108,16 @@ export class AppController {
       console.error('Error printing file:', err);
       throw new BadRequestException(err.message);
     }
+  }
+
+  @Post('checkCode')
+  async checkCode(@Body('code') code: string) {
+    if (!code) {
+      throw new BadRequestException('Code is required');
+    }
+
+    const result = this.codeService.checkCode(code);
+    return { message: result };
   }
 
   @Post('updateCopies')

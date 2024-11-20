@@ -14,6 +14,7 @@ import { PrintService } from './print';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CodeService } from './code.service';
+import { networkInterfaces } from 'os';
 
 @Controller()
 export class AppController {
@@ -153,6 +154,24 @@ export class AppController {
     console.log('Quit Application');
     this.appService.closeWindow();
   }
-  
-  
+
+  @Get('ip')
+  getIPs() {
+    const nets = networkInterfaces();
+    const results: Record<string, string[]> = {};
+
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        const familyV4Value = typeof net.family === 'string' ? 'IPv4' : 4;
+        if (net.family === familyV4Value && !net.internal) {
+          if (!results[name]) {
+            results[name] = [];
+          }
+          results[name].push(net.address);
+        }
+      }
+    }
+
+    return results;
+  }
 }

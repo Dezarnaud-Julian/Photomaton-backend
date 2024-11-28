@@ -15,6 +15,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CodeService } from './code.service';
 import { networkInterfaces } from 'os';
+import { exec } from 'child_process';
+const fsCredits = require('fs').promises;
 
 @Controller()
 export class AppController {
@@ -174,4 +176,25 @@ export class AppController {
 
     return results;
   }
+
+  @Post('cupsenable')
+  async cupsenable() {
+    exec(`cupsenable ${'DP-QW410'}`, (err, output) => {
+      if (err) {
+        console.error('could not execute command: ', err);
+        return;
+      }
+    });
+  }
+
+  @Get('credits')
+    async getCredits() {
+      try {
+        const data = await fsCredits.readFile('src/compteur.txt', 'utf8');
+        return parseInt(data, 10);
+      } catch (err) {
+        console.error('Error reading compteur.txt:', err);
+        throw new BadRequestException('Failed to read copies count');
+      }
+    }
 }

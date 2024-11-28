@@ -258,18 +258,17 @@ export class PrintService {
 
         console.log('Linux driver with options', options);
         await getPrinters().then(console.log);
-        const printJob = await printUnix(pdfPath, printer, options).catch(
-          (err) => console.error(`Error while printing: ${err}`),
-        );
-        async function waitForPrintCompletion(printJob) {
-          while (!(await isPrintComplete(printJob))) {
-            // Wait a bit before checking again (to avoid constant checks)
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second
-          }
-          console.log('Job complete');
-        }
-
-        await waitForPrintCompletion(printJob);
+        try {
+          console.log('Sending job to printer...');
+          const printJob = await printUnix(pdfPath, printer, options);
+          console.log(`Printed copies of ${pdfPath}`);
+        } catch (err) {
+          console.error('Error while printing:', err);
+          throw new BadRequestException({
+            message: 'Erreur lors de l’impression',
+            details: err.message || 'Un problème est survenu avec l’imprimante.',
+          });
+        }        
         console.log(`Printed copies of ${pdfPath}`);
       }
 
@@ -281,8 +280,10 @@ export class PrintService {
       }
     } catch (err) {
       console.error(`Error in print process: ${err}`);
-      throw err; // Re-throw the caught exception
-    }
+      throw new BadRequestException({
+        message: 'Erreur lors de l’impression',
+        details: err.message || 'Un problème est survenu avec l’imprimante.',
+      });    }
 
     // Optionally delete the PDF after printing
     try {

@@ -109,7 +109,10 @@ export class AppController {
       );
     } catch (err) {
       console.error('Error printing file:', err);
-      throw new BadRequestException(err.message);
+      throw new BadRequestException({
+        message: 'Erreur lors de l’impression',
+        details: err.message || 'Un problème est survenu avec l’imprimante.',
+      });
     }
   }
 
@@ -179,12 +182,25 @@ export class AppController {
 
   @Post('cupsenable')
   async cupsenable() {
-    exec(`cupsenable ${'DP-QW410'}`, (err, output) => {
+    const printerName = 'DP-QW410';
+
+    // Supprimer tous les travaux d'impression de la file d'attente
+    exec(`sudo -E cancel -a ${printerName}`, (err, output) => {
       if (err) {
-        console.error('could not execute command: ', err);
+        console.error('Failed to clear the print queue: ', err);
         return;
       }
+      console.log(`Cleared print queue for ${printerName}:`, output);
+    
+      exec(`sudo -E cupsenable ${printerName}`, (err, output) => {
+        if (err) {
+          console.error('Failed to enable the printer: ', err);
+          return;
+        }
+        console.log(`Printer ${printerName} enabled successfully:`, output);
+      });
     });
+    
   }
 
   @Get('credits')

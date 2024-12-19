@@ -184,23 +184,31 @@ export class AppController {
   async cupsenable() {
     const printerName = 'DP-QW410';
 
-    // Supprimer tous les travaux d'impression de la file d'attente
-    exec(`sudo -E cancel -a ${printerName}`, (err, output) => {
+    // // Supprimer tous les travaux d'impression de la file d'attente
+    // exec(`sudo -E cancel -a ${printerName}`, (err, output) => {
+    //   if (err) {
+    //     console.error('Failed to clear the print queue: ', err);
+    //     return;
+    //   }
+    //   console.log(`Cleared print queue for ${printerName}:`, output);
+    
+    //   exec(`sudo -E cupsenable ${printerName}`, (err, output) => {
+    //     if (err) {
+    //       console.error('Failed to enable the printer: ', err);
+    //       return;
+    //     }
+    //     console.log(`Printer ${printerName} enabled successfully:`, output);
+    //   });
+    // });
+    
+    exec(`sudo -E cupsenable ${printerName}`, (err, output) => {
       if (err) {
-        console.error('Failed to clear the print queue: ', err);
+        console.error('Failed to enable the printer: ', err);
         return;
       }
-      console.log(`Cleared print queue for ${printerName}:`, output);
-    
-      exec(`sudo -E cupsenable ${printerName}`, (err, output) => {
-        if (err) {
-          console.error('Failed to enable the printer: ', err);
-          return;
-        }
-        console.log(`Printer ${printerName} enabled successfully:`, output);
-      });
+      console.log(`Printer ${printerName} enabled successfully:`, output);
     });
-    
+
   }
 
   @Get('credits')

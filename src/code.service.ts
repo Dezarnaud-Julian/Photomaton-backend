@@ -1,6 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { readFile, writeFile } from 'fs/promises';
-import path from 'path';
 
 @Injectable()
 export class CodeService {
@@ -14,8 +13,10 @@ export class CodeService {
   private async loadCodes() {
     try {
       const codesData = await readFile('codes.json');
-      this.codeDictionary = JSON.parse(codesData.toString()) as { [key: string]: boolean };
-      console.log('Codes loaded successfully:', this.codeDictionary);
+      this.codeDictionary = JSON.parse(codesData.toString()) as {
+        [key: string]: boolean;
+      };
+      console.log('Codes loaded successfully');
     } catch (error) {
       console.error('Error loading codes:', error);
       throw new BadRequestException('Failed to load codes');
@@ -24,8 +25,7 @@ export class CodeService {
 
   async saveCodesInFile(codes: { [key: string]: boolean }) {
     await writeFile('codes.json', JSON.stringify(codes), 'utf8');
-  };
-  
+  }
 
   // Vérifie le code scanné
   checkCode(code: string): string {
